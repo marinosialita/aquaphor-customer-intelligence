@@ -1,5 +1,5 @@
 export const SUPABASE_FUNCTIONS = 'https://wxjwazicluifmsqfvqfn.supabase.co/functions/v1';
-export const API_BASE = `${SUPABASE_FUNCTIONS}/aquaphor-api`;
+export const API_BASE = `${SUPABASE_FUNCTIONS}/aquaphor-api-web`;
 export const AI_BASE = `${SUPABASE_FUNCTIONS}/aquaphor-ai-web`;
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
