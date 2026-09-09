@@ -1,0 +1,353 @@
+name: Apply AQUAPHOR Elite CRM Upgrade
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/elite-crm-upgrade.yml
+
+permissions:
+  contents: write
+
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply data-first premium UI upgrade
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          app_path = Path('src/EliteApp.tsx')
+          app = app_path.read_text(encoding='utf-8')
+
+          old_export = "const rows = [['Client','Email','Phone','City','VAT','Source','Contacts','Tasks','Applications','Next Service','Quality'], ...(data?.items || []).map((r) => [displayName(r),r.email||'',r.phone||'',r.city||'',r.vat||'',r.origin||'',r.contact_count||0,r.task_count||0,r.application_count||0,r.next_service_due||'',r.data_quality_score||''])];"
+          new_export = "const rows = [['Client','Email','Phone','City','Application / Customer Date','VAT','Source','Contacts','Tasks','Applications','Next Service','Quality'], ...(data?.items || []).map((r) => [displayName(r),r.email||'',r.phone||'',r.city||'',r.application_date||r.legacy_created_at||r.created_at||'',r.vat||'',r.origin||'',r.contact_count||0,r.task_count||0,r.application_count||0,r.next_service_due||'',r.data_quality_score||''])];"
+          if old_export not in app:
+              raise SystemExit('Client CSV export target was not found')
+          app = app.replace(old_export, new_export, 1)
+
+          old_head = '<thead><tr><th>Client</th><th>Contact</th><th>City</th><th>Relationship</th><th>Next service</th><th>Data quality</th><th /></tr></thead>'
+          new_head = '<thead><tr><th>Client</th><th>Contact</th><th>City</th><th>Application / customer date</th><th>Relationship</th><th>Next service</th><th>Data quality</th><th /></tr></thead>'
+          if old_head not in app:
+              raise SystemExit('Client table header target was not found')
+          app = app.replace(old_head, new_head, 1)
+
+          old_row = "</td><td>{row.city || '—'}</td><td><div className=\"relationship-counts\">"
+          new_row = "</td><td>{row.city || '—'}</td><td><div className=\"client-date-cell\"><span>{fmtDate(row.application_date||row.legacy_created_at||row.created_at)}</span><small>{row.application_date?'Application':'Customer created'}</small></div></td><td><div className=\"relationship-counts\">"
+          if old_row not in app:
+              raise SystemExit('Client table row target was not found')
+          app = app.replace(old_row, new_row, 1)
+
+          app = app.replace('title="Customer intelligence, in one view." subtitle="A live operational picture across customers, contacts, applications and service work."', 'title="AQUAPHOR Customer Command Center" subtitle="One verified operating system for every customer, contact, application, installation and service obligation."', 1)
+          app = app.replace('<span className="banner-kicker"><Activity size={15} /> LIVE CUSTOMER GRAPH</span><h2>Every relationship and service event, connected.</h2><p>Search a client, understand their complete history, identify overdue work and draft precise follow-up from verified records.</p>', '<span className="banner-kicker"><Activity size={15} /> LIVE CUSTOMER GRAPH</span><h2>From application to lifetime service - one connected customer record.</h2><p>Search any customer, inspect the verified 360 dossier, prioritise overdue work and draft precise follow-up from the underlying data.</p>', 1)
+
+          app_path.write_text(app, encoding='utf-8')
+
+          main_path = Path('src/main.tsx')
+          main = main_path.read_text(encoding='utf-8')
+          if "import './premium.css';" not in main:
+              main = main.replace("import './elite.css';", "import './elite.css';\nimport './premium.css';")
+          main_path.write_text(main, encoding='utf-8')
+
+          premium = r'''
+          :root {
+            --premium-navy: #071b38;
+            --premium-navy-2: #0a2a55;
+            --premium-blue: #0877e6;
+            --premium-cyan: #25b5ff;
+            --premium-ice: #eef8ff;
+            --premium-border: rgba(15, 60, 105, .11);
+            --premium-shadow: 0 18px 55px rgba(20, 62, 105, .10), 0 2px 10px rgba(20, 62, 105, .05);
+            --premium-shadow-hover: 0 24px 70px rgba(8, 65, 125, .16), 0 3px 14px rgba(8, 65, 125, .08);
+          }
+
+          html { background: #f5f9fd; }
+          body {
+            background:
+              radial-gradient(circle at 73% -10%, rgba(37, 181, 255, .14), transparent 31rem),
+              radial-gradient(circle at 18% 108%, rgba(8, 119, 230, .08), transparent 33rem),
+              #f5f9fd;
+            letter-spacing: -.008em;
+          }
+          body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: -1;
+            background-image: linear-gradient(rgba(9, 53, 97, .018) 1px, transparent 1px), linear-gradient(90deg, rgba(9, 53, 97, .018) 1px, transparent 1px);
+            background-size: 38px 38px;
+            mask-image: linear-gradient(to bottom, rgba(0,0,0,.45), transparent 75%);
+          }
+
+          .workspace-shell { background: transparent; }
+          .elite-sidebar {
+            background:
+              radial-gradient(circle at 20% 0%, rgba(37,181,255,.24), transparent 18rem),
+              linear-gradient(165deg, #0a2b57 0%, #071b38 55%, #06152b 100%);
+            border-right: 1px solid rgba(255,255,255,.08);
+            box-shadow: 18px 0 60px rgba(5, 24, 49, .10);
+          }
+          .brand-lockup strong { color: #fff; letter-spacing: .16em; }
+          .brand-lockup span { color: rgba(225,243,255,.68); }
+          .a-logo {
+            background: linear-gradient(145deg, #ffffff 0%, #dff4ff 100%);
+            color: #0877e6;
+            box-shadow: 0 12px 28px rgba(0,0,0,.20), inset 0 0 0 1px rgba(255,255,255,.75);
+          }
+          .workspace-chip {
+            color: #dff4ff;
+            background: rgba(255,255,255,.075);
+            border-color: rgba(255,255,255,.10);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+          }
+          .workspace-chip span { color: rgba(222,241,255,.62); }
+          .elite-nav { color: rgba(226,241,255,.72); border: 1px solid transparent; }
+          .elite-nav:hover {
+            color: #fff;
+            background: rgba(255,255,255,.07);
+            border-color: rgba(255,255,255,.08);
+            transform: translateX(2px);
+          }
+          .elite-nav.active {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(37,181,255,.25), rgba(8,119,230,.16));
+            border-color: rgba(95,202,255,.24);
+            box-shadow: inset 3px 0 0 #44c5ff, 0 10px 26px rgba(0,0,0,.12);
+          }
+          .elite-nav.active svg { color: #78d7ff; filter: drop-shadow(0 0 8px rgba(37,181,255,.5)); }
+          .sidebar-intel {
+            background: linear-gradient(145deg, rgba(255,255,255,.105), rgba(255,255,255,.045));
+            border-color: rgba(255,255,255,.12);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+          }
+          .sidebar-intel strong, .sidebar-intel a { color: #fff; }
+          .sidebar-intel p, .sidebar-footer { color: rgba(222,241,255,.61); }
+          .live-dot { box-shadow: 0 0 0 5px rgba(52,211,153,.11), 0 0 18px rgba(52,211,153,.55); }
+
+          .elite-topbar {
+            background: rgba(255,255,255,.82);
+            border-bottom: 1px solid rgba(15,60,105,.08);
+            box-shadow: 0 8px 30px rgba(20,62,105,.055);
+            backdrop-filter: blur(22px) saturate(150%);
+          }
+          .global-search {
+            background: rgba(244,249,253,.86);
+            border-color: rgba(15,60,105,.10);
+            box-shadow: inset 0 1px 2px rgba(12,45,79,.04);
+          }
+          .global-search:focus-within {
+            border-color: rgba(8,119,230,.45);
+            background: #fff;
+            box-shadow: 0 0 0 4px rgba(8,119,230,.09), 0 10px 28px rgba(8,65,125,.08);
+          }
+          .test-badge {
+            background: linear-gradient(180deg, #f1fbf7, #e9f9f1);
+            border-color: rgba(22,163,74,.17);
+            box-shadow: 0 6px 18px rgba(22,163,74,.06);
+          }
+
+          .elite-main { padding: 36px clamp(24px, 3.2vw, 54px) 70px; }
+          .page { max-width: 1760px; margin: 0 auto; }
+          .page-header { margin-bottom: 26px; }
+          .page-header h1 {
+            font-size: clamp(2rem, 2.5vw, 3.15rem);
+            letter-spacing: -.055em;
+            line-height: 1.01;
+            color: #071b38;
+          }
+          .page-header p { max-width: 850px; font-size: 1.01rem; color: #61748a; }
+          .eyebrow, .panel-label { letter-spacing: .14em; font-weight: 800; }
+
+          .intelligence-banner {
+            min-height: 240px;
+            background:
+              radial-gradient(circle at 84% 25%, rgba(89,210,255,.35), transparent 18rem),
+              linear-gradient(120deg, #061b38 0%, #0a4e91 60%, #0877e6 100%);
+            border: 1px solid rgba(255,255,255,.16);
+            box-shadow: 0 28px 75px rgba(7,53,102,.20), inset 0 1px 0 rgba(255,255,255,.12);
+            overflow: hidden;
+          }
+          .intelligence-banner::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+            background-size: 34px 34px;
+            mask-image: linear-gradient(90deg, transparent, #000 55%);
+          }
+          .intelligence-banner > * { position: relative; z-index: 1; }
+          .intelligence-banner h2 { font-size: clamp(1.75rem, 2.5vw, 2.8rem); letter-spacing: -.045em; max-width: 780px; }
+          .banner-kicker { background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.16); padding: 7px 11px; border-radius: 999px; width: fit-content; }
+
+          .panel, .metric-card, .profile-hero, .filter-bar, .review-card, .ai-console, .form-card {
+            border-color: var(--premium-border);
+            box-shadow: var(--premium-shadow);
+          }
+          .panel {
+            background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(250,253,255,.96));
+            border-radius: 22px;
+          }
+          .panel:hover { border-color: rgba(8,119,230,.16); }
+          .metric-card {
+            min-height: 124px;
+            border-radius: 20px;
+            background: linear-gradient(145deg, #fff 0%, #f8fcff 100%);
+            overflow: hidden;
+            position: relative;
+          }
+          .metric-card::after {
+            content: '';
+            position: absolute;
+            width: 90px;
+            height: 90px;
+            right: -32px;
+            top: -38px;
+            border-radius: 50%;
+            background: rgba(8,119,230,.055);
+          }
+          .metric-card:hover { transform: translateY(-3px); box-shadow: var(--premium-shadow-hover); }
+          .metric-card strong { letter-spacing: -.045em; }
+          .metric-icon { background: linear-gradient(145deg, #e9f7ff, #dff1ff); color: #0877e6; box-shadow: inset 0 0 0 1px rgba(8,119,230,.08); }
+
+          .button { border-radius: 12px; font-weight: 750; letter-spacing: -.01em; }
+          .button-primary {
+            background: linear-gradient(135deg, #0877e6, #0564c6);
+            border-color: transparent;
+            box-shadow: 0 12px 24px rgba(8,119,230,.20), inset 0 1px 0 rgba(255,255,255,.18);
+          }
+          .button-primary:hover { transform: translateY(-1px); box-shadow: 0 16px 32px rgba(8,119,230,.28); }
+          .button-secondary { background: rgba(255,255,255,.88); box-shadow: 0 8px 20px rgba(20,62,105,.06); }
+
+          .filter-bar {
+            background: rgba(255,255,255,.88);
+            backdrop-filter: blur(16px);
+            border-radius: 18px;
+            padding: 14px;
+          }
+          .filter-bar input, .filter-bar select, .composer textarea, .form-card input, .form-card textarea, .form-card select {
+            background: #f8fbfe;
+            border-color: rgba(15,60,105,.11);
+            border-radius: 11px;
+          }
+          .filter-bar input:focus, .filter-bar select:focus, .composer textarea:focus, .form-card input:focus, .form-card textarea:focus, .form-card select:focus {
+            background: #fff;
+            border-color: rgba(8,119,230,.45);
+            box-shadow: 0 0 0 4px rgba(8,119,230,.08);
+          }
+
+          .table-panel { overflow: hidden; }
+          .table-scroll { scrollbar-color: rgba(8,119,230,.26) transparent; }
+          .data-table { border-collapse: separate; border-spacing: 0; }
+          .data-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 3;
+            background: rgba(244,249,253,.96);
+            backdrop-filter: blur(12px);
+            color: #526980;
+            font-size: .72rem;
+            letter-spacing: .085em;
+            text-transform: uppercase;
+            border-bottom: 1px solid rgba(15,60,105,.11);
+          }
+          .data-table tbody tr { transition: background .16s ease, transform .16s ease, box-shadow .16s ease; }
+          .data-table tbody tr:hover { background: linear-gradient(90deg, rgba(8,119,230,.055), rgba(37,181,255,.025)); box-shadow: inset 3px 0 0 rgba(8,119,230,.62); }
+          .data-table td { border-bottom-color: rgba(15,60,105,.07); }
+          .identity-cell .avatar, .profile-avatar, .contact-card .avatar, .recent-client .avatar {
+            background: linear-gradient(145deg, #0b4380, #0877e6 62%, #25b5ff);
+            color: #fff;
+            box-shadow: 0 10px 22px rgba(8,82,158,.20), inset 0 1px 0 rgba(255,255,255,.22);
+          }
+          .client-date-cell { display: flex; flex-direction: column; gap: 3px; min-width: 132px; }
+          .client-date-cell span { color: #173b60; font-weight: 730; white-space: nowrap; }
+          .client-date-cell small { color: #8091a4; font-size: .69rem; text-transform: uppercase; letter-spacing: .055em; }
+          .relationship-counts span { background: #f0f7fd; border-color: rgba(8,119,230,.10); color: #315d86; }
+          .row-action { white-space: nowrap; border-radius: 10px; padding: 8px 10px; }
+          .row-action:hover { background: #e9f5ff; transform: translateX(2px); }
+
+          .status-pill, select.status-pill { border-radius: 999px; font-weight: 780; box-shadow: inset 0 0 0 1px rgba(0,0,0,.035); }
+          .quality { border-radius: 999px; overflow: hidden; background: #edf4f9; }
+          .quality i { opacity: .16; }
+          .date-alert { color: #c22b38 !important; font-weight: 800; }
+          .overdue-note { color: #c22b38; font-weight: 700; }
+
+          .profile-hero {
+            border-radius: 24px;
+            background:
+              radial-gradient(circle at 88% 10%, rgba(37,181,255,.16), transparent 18rem),
+              linear-gradient(145deg, #fff, #f3faff);
+          }
+          .profile-title h1 { letter-spacing: -.045em; }
+          .profile-tags span { background: rgba(255,255,255,.75); border: 1px solid rgba(15,60,105,.10); box-shadow: 0 5px 14px rgba(20,62,105,.05); }
+          .contact-card { border-radius: 17px; background: linear-gradient(145deg,#fff,#f8fcff); }
+          .contact-card:hover { transform: translateY(-2px); box-shadow: var(--premium-shadow-hover); }
+
+          .ai-hero {
+            background:
+              radial-gradient(circle at 85% 15%, rgba(37,181,255,.25), transparent 16rem),
+              linear-gradient(125deg, #071b38, #0a4d8d 66%, #0877e6);
+            box-shadow: 0 26px 70px rgba(7,53,102,.19);
+          }
+          .ai-console { border-radius: 22px; background: rgba(255,255,255,.96); }
+          .ai-entry { border-radius: 18px; }
+          .assistant-answer { line-height: 1.68; }
+          .mode-tabs { background: #eef5fb; border: 1px solid rgba(15,60,105,.08); }
+          .mode-tabs button.active { background: #fff; box-shadow: 0 7px 18px rgba(15,60,105,.10); color: #0877e6; }
+          .composer { border-top-color: rgba(15,60,105,.08); background: rgba(248,252,255,.92); }
+
+          .review-summary { border-radius: 16px; box-shadow: 0 10px 26px rgba(20,62,105,.06); }
+          .review-card { border-radius: 20px; }
+          .candidate-list button { border-radius: 14px; background: linear-gradient(145deg,#fff,#f7fbff); }
+          .candidate-list button:hover { transform: translateY(-2px); border-color: rgba(8,119,230,.34); box-shadow: 0 13px 30px rgba(8,82,158,.10); }
+
+          .pagination { background: rgba(248,252,255,.82); }
+          .pagination b { color: #173b60; }
+
+          @media (max-width: 1120px) {
+            .elite-main { padding: 28px 22px 60px; }
+            .data-table { min-width: 1080px; }
+          }
+          @media (max-width: 760px) {
+            .page-header h1 { font-size: 2.05rem; }
+            .intelligence-banner { min-height: 220px; padding: 24px; }
+            .metric-card { min-height: 105px; }
+            .filter-bar { border-radius: 15px; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+          }
+          '''
+          Path('src/premium.css').write_text(premium.strip() + '\n', encoding='utf-8')
+
+          public = Path('public')
+          public.mkdir(exist_ok=True)
+          icon = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0a2a55"/><stop offset=".62" stop-color="#0877e6"/><stop offset="1" stop-color="#25b5ff"/></linearGradient></defs><rect width="64" height="64" rx="16" fill="url(#g)"/><path d="M32 10 54 53H43.5l-4.3-8.7H24.8L20.5 53H10L32 10Zm0 15.7-4 9.1h8l-4-9.1Z" fill="#fff"/><path d="M27.7 39h8.6" stroke="#dff6ff" stroke-width="4" stroke-linecap="round"/></svg>'''
+          (public / 'aquaphor-a.svg').write_text(icon, encoding='utf-8')
+
+          index_path = Path('index.html')
+          index = index_path.read_text(encoding='utf-8')
+          if 'aquaphor-a.svg' not in index:
+              index = index.replace('<meta name="theme-color" content="#0877e6" />', '<meta name="theme-color" content="#071b38" />\n    <link rel="icon" type="image/svg+xml" href="/aquaphor-a.svg" />\n    <meta name="description" content="AQUAPHOR Customer Intelligence - connected customer, application and service operations." />')
+          index_path.write_text(index, encoding='utf-8')
+          PY
+
+      - name: Verify production build
+        run: |
+          npm install
+          npm run build
+
+      - name: Commit verified upgrade
+        run: |
+          git config user.name "AQUAPHOR CRM Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/EliteApp.tsx src/main.tsx src/premium.css public/aquaphor-a.svg index.html
+          git commit -m "Upgrade AQUAPHOR CRM command center UI" || exit 0
+          git push
